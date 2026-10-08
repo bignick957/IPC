@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Betting Probability & Edge Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        inputBg: '#0f172a',
+                        accentGreen: '#10b981',
+                        accentRed: '#ef4444',
+                        accentBlue: '#3b82f6',
+                        accentPurple: '#8b5cf6'
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white">
+
+    <header class="border-b border-slate-800 bg-cardBg/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-calculator text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+                        OddsEdge <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-normal">Pro v2.4</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Advanced Sports Betting Probability & Edge Suite</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="switchTab('converter')" id="nav-converter" class="px-3 py-2 rounded-lg text-sm font-medium transition-all bg-blue-600 text-white shadow-md shadow-blue-600/30">
+                    <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Odds Converter
+                </button>
+                <button onclick="switchTab('edge')" id="nav-edge" class="px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-800">
+                    <i class="fa-solid fa-chart-line mr-1.5"></i> Edge & EV+
+                </button>
+                <button onclick="switchTab('novig')" id="nav-novig" class="px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-800">
+                    <i class="fa-solid fa-scale-balanced mr-1.5"></i> No-Vig Fair Odds
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- TAB 1: CONVERTER & IMPLIED PROBABILITY -->
+        <section id="tab-converter" class="space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-rotate text-blue-500"></i> Implied Probability & Odds Converter
+                    </h2>
+                    <p class="text-sm text-slate-400 mt-1">Convert seamlessly between American, Decimal, and Fractional odds with optional vig stripping.</p>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60">
+                    <span class="text-xs font-medium text-slate-300 px-2">Vig Removal Method:</span>
+                    <select id="conv-vig-method" onchange="calculateConverter()" class="bg-inputBg text-xs text-slate-200 py-1.5 px-3 rounded-lg border border-slate-700 focus:outline-none focus:border-blue-500">
+                        <option value="none">None (Raw Implied)</option>
+                        <option value="proportional">Proportional (Multiplicative)</option>
+                        <option value="additive">Additive (Power/Margin Split)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Input Panel -->
+                <div class="lg:col-span-6 bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-400"></i> Input Odds
+                    </h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">American Odds (+/-)</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold">US</div>
+                                <input type="number" id="conv-american" value="-110" oninput="handleOddsInput('american')" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white mono font-semibold focus:outline-none focus:border-blue-500 transition-colors">
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">e.g., -110, +150, -250</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Decimal Odds</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold">DEC</div>
+                                <input type="number" step="0.01" id="conv-decimal" value="1.91" oninput="handleOddsInput('decimal')" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white mono font-semibold focus:outline-none focus:border-blue-500 transition-colors">
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">e.g., 1.91, 2.50, 1.40</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Fractional Odds</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="relative">
+                                    <input type="number" id="conv-frac-num" value="10" oninput="handleOddsInput('fractional')" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 px-4 text-white mono font-semibold text-center focus:outline-none focus:border-blue-500">
+                                    <span class="absolute right-2 top-3 text-xs text-slate-500">Numerator</span>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="conv-frac-den" value="11" oninput="handleOddsInput('fractional')" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 px-4 text-white mono font-semibold text-center focus:outline-none focus:border-blue-500">
+                                    <span class="absolute right-2 top-3 text-xs text-slate-500">Denominator</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">e.g., 10/11 or 3/2</p>
+                        </div>
+
+                        <!-- Optional context for Vig removal simulation if part of 2-way market -->
+                        <div class="pt-3 border-t border-slate-800">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Opposing Side Odds (Optional for Vig Strip)</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold">OPP</div>
+                                <input type="number" id="conv-opp-american" value="-110" oninput="calculateConverter()" placeholder="e.g. -110" class="w-full bg-inputBg border border-slate-700 rounded-xl py-2.5 pl-12 pr-4 text-white mono text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">Required if you selected Proportional or Additive vig removal above.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Panel -->
+                <div class="lg:col-span-6 space-y-6">
+                    <div class="bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                        <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-emerald-400"></i> Calculated Probabilities & Payouts
+                        </h3>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Implied Probability</span>
+                                <div class="mt-2">
+                                    <span id="res-implied-prob" class="text-3xl font-bold text-white mono">52.38%</span>
+                                </div>
+                                <span id="res-prob-label" class="text-[11px] text-slate-500 mt-1">Raw Market Implied</span>
+                            </div>
+
+                            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Fair Probability (No-Vig)</span>
+                                <div class="mt-2">
+                                    <span id="res-fair-prob" class="text-3xl font-bold text-emerald-400 mono">50.00%</span>
+                                </div>
+                                <span class="text-[11px] text-slate-500 mt-1">Vig-free true probability</span>
+                            </div>
+                        </div>
+
+                        <!-- Payout & Multipliers -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex justify-between items-center bg-slate-900/50 px-4 py-3 rounded-xl border border-slate-800">
+                                <span class="text-sm text-slate-400">Profit on $100 Stake</span>
+                                <span id="res-profit" class="text-lg font-bold text-white mono">$90.91</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-900/50 px-4 py-3 rounded-xl border border-slate-800">
+                                <span class="text-sm text-slate-400">Total Payout ($100 Stake)</span>
+                                <span id="res-payout" class="text-lg font-bold text-white mono">$190.91</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-900/50 px-4 py-3 rounded-xl border border-slate-800">
+                                <span class="text-sm text-slate-400">Implied Bookmaker Vig (Overround)</span>
+                                <span id="res-overround" class="text-lg font-bold text-blue-400 mono">4.76%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Info Box -->
+                    <div class="bg-blue-950/20 border border-blue-900/30 rounded-xl p-4 flex items-start gap-3">
+                        <i class="fa-solid fa-circle-info text-blue-400 mt-1"></i>
+                        <div class="text-xs text-slate-300 leading-relaxed">
+                            <span class="font-semibold text-white">Pro Tip:</span> Raw implied probability always adds up to over 100% in 2-way markets due to the sportsbook's juice (vig). Use No-Vig fair probabilities when comparing against your own mathematical models.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: TRUE PROBABILITY VS MARKET EDGE (EV+) -->
+        <section id="tab-edge" class="space-y-6 hidden">
+            <div class="pb-4 border-b border-slate-800">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-emerald-500"></i> True Probability vs. Market Edge & EV Calculator
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Calculate your mathematical edge, Expected Value (EV%), and Kelly Criterion recommended stake size.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Edge Inputs -->
+                <div class="lg:col-span-6 bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400"></i> Bet Parameters
+                    </h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Sportsbook Odds (American)</label>
+                            <input type="number" id="edge-american" value="+150" oninput="calculateEdge()" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 px-4 text-white mono font-semibold focus:outline-none focus:border-emerald-500">
+                            <p class="text-xs text-slate-500 mt-1">The odds offered by the sportsbook.</p>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Your Estimated True Probability (%)</label>
+                                <span id="edge-prob-slider-val" class="text-xs font-bold text-emerald-400 mono">42.0%</span>
+                            </div>
+                            <input type="range" id="edge-prob-range" min="1" max="99" step="0.5" value="42" oninput="syncEdgeInput('range')" class="w-full accent-emerald-500 cursor-pointer">
+                            <div class="mt-2">
+                                <input type="number" step="0.1" id="edge-true-prob" value="42.0" oninput="syncEdgeInput('number')" class="w-full bg-inputBg border border-slate-700 rounded-xl py-2.5 px-4 text-white mono font-semibold focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">Your model's or personal calculation of the true win probability.</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Bankroll ($)</label>
+                                <input type="number" id="edge-bankroll" value="1000" oninput="calculateEdge()" class="w-full bg-inputBg border border-slate-700 rounded-xl py-2.5 px-4 text-white mono font-semibold focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Kelly Multiplier</label>
+                                <select id="edge-kelly-fraction" onchange="calculateEdge()" class="w-full bg-inputBg border border-slate-700 rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-emerald-500">
+                                    <option value="1">Full Kelly (1.0x)</option>
+                                    <option value="0.5" selected>Half Kelly (0.5x - Recommended)</option>
+                                    <option value="0.25">Quarter Kelly (0.25x)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edge Results & EV -->
+                <div class="lg:col-span-6 space-y-6">
+                    <div class="bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                        <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-blue-400"></i> Expected Value & Edge Analysis
+                        </h3>
+
+                        <!-- Big EV Card -->
+                        <div id="edge-ev-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center transition-all">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Expected Value (EV%)</span>
+                            <div class="my-2">
+                                <span id="res-ev-percent" class="text-4xl font-extrabold mono text-emerald-400">+5.00%</span>
+                            </div>
+                            <span id="res-ev-verdict" class="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-block">POSITIVE EV (Profitable Bet)</span>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+                                <span class="text-xs text-slate-400 uppercase tracking-wide">Betting Edge</span>
+                                <div class="mt-1.5">
+                                    <span id="res-edge-percentage" class="text-2xl font-bold text-white mono">+2.22%</span>
+                                </div>
+                                <span class="text-[11px] text-slate-500">True Prob - Implied Prob</span>
+                            </div>
+
+                            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+                                <span class="text-xs text-slate-400 uppercase tracking-wide">Kelly Stake ($)</span>
+                                <div class="mt-1.5">
+                                    <span id="res-kelly-stake" class="text-2xl font-bold text-emerald-400 mono">$14.80</span>
+                                </div>
+                                <span id="res-kelly-pct" class="text-[11px] text-slate-500">1.48% of Bankroll</span>
+                            </div>
+                        </div>
+
+                        <!-- Summary Breakdown -->
+                        <div class="space-y-2 pt-2 text-sm">
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Bookmaker Implied Probability</span>
+                                <span id="res-edge-implied" class="font-semibold text-white mono">40.00%</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Decimal Odds</span>
+                                <span id="res-edge-decimal" class="font-semibold text-white mono">2.50</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="text-slate-400">Estimated Profit per $100</span>
+                                <span id="res-edge-ev-dollar" class="font-semibold text-emerald-400 mono">+$12.50</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: NO-VIG / FAIR ODDS CONVERTER -->
+        <section id="tab-novig" class="space-y-6 hidden">
+            <div class="pb-4 border-b border-slate-800">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-purple-500"></i> Two-Way Market No-Vig Fair Odds Calculator
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Strip the bookmaker juice from any 2-way market (e.g. point spreads, totals) to uncover true fair odds and probabilities.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Inputs for 2-way -->
+                <div class="lg:col-span-6 bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-book-bookmark text-purple-400"></i> Market Sportsbook Odds
+                    </h3>
+
+                    <div class="space-y-5">
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-semibold uppercase tracking-wider text-slate-300">Side A (e.g., Team A / Over)</label>
+                                <span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">Selection 1</span>
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="novig-odds-1" value="-110" oninput="calculateNoVig()" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 px-4 text-white mono font-semibold focus:outline-none focus:border-purple-500">
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-semibold uppercase tracking-wider text-slate-300">Side B (e.g., Team B / Under)</label>
+                                <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded">Selection 2</span>
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="novig-odds-2" value="-110" oninput="calculateNoVig()" class="w-full bg-inputBg border border-slate-700 rounded-xl py-3 px-4 text-white mono font-semibold focus:outline-none focus:border-purple-500">
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Vig Removal Method</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" id="method-mult" onclick="setNoVigMethod('multiplicative')" class="py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20">
+                                    Multiplicative (Default)
+                                </button>
+                                <button type="button" id="method-add" onclick="setNoVigMethod('additive')" class="py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+                                    Additive
+                                </button>
+                            </div>
+                            <input type="hidden" id="novig-method-val" value="multiplicative">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- No Vig Results -->
+                <div class="lg:col-span-6 space-y-6">
+                    <div class="bg-cardBg border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-check-to-slot text-purple-400"></i> Fair No-Vig Market Output
+                            </h3>
+                            <div class="text-right">
+                                <span class="text-xs text-slate-400">Bookmaker Overround:</span>
+                                <span id="novig-overround" class="text-xs font-bold text-amber-400 mono ml-1">4.76%</span>
+                            </div>
+                        </div>
+
+                        <!-- Side A Fair Card -->
+                        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Side A Fair Value</span>
+                                <span id="novig-fair-odds-1" class="text-base font-extrabold text-purple-400 mono">-100</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800">
+                                <div>
+                                    <span class="text-slate-500">Fair Probability:</span>
+                                    <div id="novig-fair-prob-1" class="font-bold text-white mono text-sm">50.00%</div>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Raw Implied:</span>
+                                    <div id="novig-raw-prob-1" class="font-bold text-slate-300 mono text-sm">52.38%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Side B Fair Card -->
+                        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Side B Fair Value</span>
+                                <span id="novig-fair-odds-2" class="text-base font-extrabold text-purple-400 mono">-100</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800">
+                                <div>
+                                    <span class="text-slate-500">Fair Probability:</span>
+                                    <div id="novig-fair-prob-2" class="font-bold text-white mono text-sm">50.00%</div>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">Raw Implied:</span>
+                                    <div id="novig-raw-prob-2" class="font-bold text-slate-300 mono text-sm">52.38%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-slate-800 bg-cardBg/40 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+            <p>&copy; 2026 OddsEdge Pro. Built for sharp sports bettors to eliminate calculation friction.</p>
+            <div class="flex items-center space-x-4">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-emerald-500"></i> Client-side Math Engine</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-bolt text-amber-500"></i> Instantaneous Execution</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Tab switching logic
+        function switchTab(tabId) {
+            ['converter', 'edge', 'novig'].forEach(id => {
+                document.getElementById('tab-' + id).classList.add('hidden');
+                document.getElementById('nav-' + id).className = 'px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-800';
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            
+            let activeColorClass = 'bg-blue-600 text-white shadow-md shadow-blue-600/30';
+            if(tabId === 'edge') activeColorClass = 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30';
+            if(tabId === 'novig') activeColorClass = 'bg-purple-600 text-white shadow-md shadow-purple-600/30';
+            
+            document.getElementById('nav-' + tabId).className = `px-3 py-2 rounded-lg text-sm font-medium transition-all ${activeColorClass}`;
+        }
+
+        // --- MATH CONVERSION HELPERS ---
+        function americanToDecimal(american) {
+            american = parseFloat(american);
+            if (isNaN(american)) return 0;
+            if (american > 0) {
+                return (american / 100) + 1;
+            } else {
+                return (100 / Math.abs(american)) + 1;
+            }
+        }
+
+        function decimalToAmerican(decimal) {
+            decimal = parseFloat(decimal);
+            if (isNaN(decimal) || decimal <= 1) return 0;
+            if (decimal >= 2.0) {
+                return Math.round((decimal - 1) * 100);
+            } else {
+                return Math.round(-100 / (decimal - 1));
+            }
+        }
+
+        function decimalToImpliedProb(decimal) {
+            decimal = parseFloat(decimal);
+            if (isNaN(decimal) || decimal <= 0) return 0;
+            return (1 / decimal) * 100;
+        }
+
+        function americanToImpliedProb(american) {
+            american = parseFloat(american);
+            if (isNaN(american)) return 0;
+            if (american > 0) {
+                return 100 / (american + 100) * 100;
+            } else {
+                return Math.abs(american) / (Math.abs(american) + 100) * 100;
+            }
+        }
+
+        function decimalToFractional(decimal) {
+            decimal = parseFloat(decimal);
+            if (isNaN(decimal) || decimal <= 1) return { num: 0, den: 1 };
+            let diff = decimal - 1;
+            // Approximate fraction
+            let tolerance = 1.0E-3;
+            let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
+            let b = diff;
+            do {
+                let a = Math.floor(b);
+                let aux = h1; h1 = a * h1 + h2; h2 = aux;
+                aux = k1; k1 = a * k1 + k2; k2 = aux;
+                b = 1 / (b - a);
+            } while (Math.abs(diff - h1 / k1) > diff * tolerance && k1 < 1000);
+            return { num: h1, den: k1 };
+        }
+
+        // --- TAB 1: CONVERTER LOGIC ---
+        function handleOddsInput(source) {
+            let amInput = document.getElementById('conv-american');
+            let decInput = document.getElementById('conv-decimal');
+            let numInput = document.getElementById('conv-frac-num');
+            let denInput = document.getElementById('conv-frac-den');
+
+            let dec = 1.91;
+
+            if (source === 'american') {
+                let am = parseFloat(amInput.value);
+                if (isNaN(am) || am === 0) return;
+                dec = americanToDecimal(am);
+                decInput.value = dec.toFixed(2);
+                let frac = decimalToFractional(dec);
+                numInput.value = frac.num;
+                denInput.value = frac.den;
+            } else if (source === 'decimal') {
+                dec = parseFloat(decInput.value);
+                if (isNaN(dec) || dec <= 1) return;
+                let am = decimalToAmerican(dec);
+                amInput.value = (am > 0 ? '+' : '') + am;
+                let frac = decimalToFractional(dec);
+                numInput.value = frac.num;
+                denInput.value = frac.den;
+            } else if (source === 'fractional') {
+                let num = parseFloat(numInput.value);
+                let den = parseFloat(denInput.value);
+                if (isNaN(num) || isNaN(den) || den === 0) return;
+                dec = (num / den) + 1;
+                decInput.value = dec.toFixed(2);
+                let am = decimalToAmerican(dec);
+                amInput.value = (am > 0 ? '+' : '') + am;
+            }
+
+            calculateConverter();
+        }
+
+        function calculateConverter() {
+            let dec = parseFloat(document.getElementById('conv-decimal').value);
+            if (isNaN(dec) || dec <= 1) return;
+
+            let rawProb = decimalToImpliedProb(dec);
+            let oppAmerican = parseFloat(document.getElementById('conv-opp-american').value);
+            let method = document.getElementById('conv-vig-method').value;
+
+            let fairProb = rawProb;
+            let overround = 0;
+
+            if (!isNaN(oppAmerican) && method !== 'none') {
+                let oppDec = americanToDecimal(oppAmerican);
+                let oppRawProb = decimalToImpliedProb(oppDec);
+                let totalRaw = rawProb + oppRawProb;
+                overround = totalRaw - 100;
+
+                if (method === 'proportional') {
+                    fairProb = (rawProb / totalRaw) * 100;
+                } else if (method === 'additive') {
+                    // Additive split margin equally or power method
+                    let margin = totalRaw - 100;
+                    fairProb = rawProb - (margin / 2);
+                }
+            }
+
+            document.getElementById('res-implied-prob').innerText = rawProb.toFixed(2) + '%';
+            document.getElementById('res-fair-prob').innerText = fairProb.toFixed(2) + '%';
+            
+            let profit100 = 100 * (dec - 1);
+            document.getElementById('res-profit').innerText = '$' + profit100.toFixed(2);
+            document.getElementById('res-payout').innerText = '$' + (100 + profit100).toFixed(2);
+            document.getElementById('res-overround').innerText = overround > 0 ? overround.toFixed(2) + '%' : 'N/A (Need opp odds)';
+        }
+
+        // --- TAB 2: EDGE & EV CALCULATOR ---
+        function syncEdgeInput(source) {
+            let range = document.getElementById('edge-prob-range');
+            let num = document.getElementById('edge-true-prob');
+            let label = document.getElementById('edge-prob-slider-val');
+
+            if (source === 'range') {
+                num.value = range.value;
+                label.innerText = range.value + '%';
+            } else {
+                range.value = num.value;
+                label.innerText = num.value + '%';
+            }
+            calculateEdge();
+        }
+
+        function calculateEdge() {
+            let american = parseFloat(document.getElementById('edge-american').value);
+            let trueProb = parseFloat(document.getElementById('edge-true-prob').value) / 100;
+            let bankroll = parseFloat(document.getElementById('edge-bankroll').value);
+            let kellyFraction = parseFloat(document.getElementById('edge-kelly-fraction').value);
+
+            if (isNaN(american) || isNaN(trueProb) || isNaN(bankroll)) return;
+
+            let dec = americanToDecimal(american);
+            let impliedProb = 1 / dec;
+            
+            // Expected Value Formula: EV = (True Probability * Decimal Odds) - 1
+            let ev = (trueProb * dec) - 1;
+            let evPercent = ev * 100;
+
+            let edgePercent = (trueProb - impliedProb) * 100;
+
+            // Kelly Criterion: f* = (p * b - q) / b, where b = dec - 1, q = 1 - p
+            let b = dec - 1;
+            let q = 1 - trueProb;
+            let kelly = b > 0 ? ((trueProb * b - q) / b) : 0;
+            if (kelly < 0) kelly = 0;
+            
+            let adjustedKelly = kelly * kellyFraction;
+            let kellyStake = bankroll * adjustedKelly;
+
+            // Update UI
+            let evElem = document.getElementById('res-ev-percent');
+            let evCard = document.getElementById('edge-ev-card');
+            let verdictElem = document.getElementById('res-ev-verdict');
+
+            evElem.innerText = (evPercent >= 0 ? '+' : '') + evPercent.toFixed(2) + '%';
+            document.getElementById('res-edge-percentage').innerText = (edgePercent >= 0 ? '+' : '') + edgePercent.toFixed(2) + '%';
+            document.getElementById('res-kelly-stake').innerText = '$' + kellyStake.toFixed(2);
+            document.getElementById('res-kelly-pct').innerText = (adjustedKelly * 100).toFixed(2) + '% of Bankroll';
+            
+            document.getElementById('res-edge-implied').innerText = (impliedProb * 100).toFixed(2) + '%';
+            document.getElementById('res-edge-decimal').innerText = dec.toFixed(2);
+            document.getElementById('res-edge-ev-dollar').innerText = (evPercent >= 0 ? '+$' : '-$') + Math.abs(100 * ev).toFixed(2);
+
+            if (evPercent > 0) {
+                evCard.className = 'bg-slate-900 border border-emerald-500/40 rounded-2xl p-5 text-center transition-all shadow-lg shadow-emerald-950/30';
+                evElem.className = 'text-4xl font-extrabold mono text-emerald-400';
+                verdictElem.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-block';
+                verdictElem.innerText = 'POSITIVE EV (Profitable Bet)';
+            } else {
+                evCard.className = 'bg-slate-900 border border-rose-500/40 rounded-2xl p-5 text-center transition-all shadow-lg shadow-rose-950/30';
+                evElem.className = 'text-4xl font-extrabold mono text-rose-400';
+                verdictElem.className = 'text-xs font-semibold px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 inline-block';
+                verdictElem.innerText = 'NEGATIVE EV (Avoid Bet)';
+            }
+        }
+
+        // --- TAB 3: NO VIG CALCULATOR ---
+        function setNoVigMethod(method) {
+            document.getElementById('novig-method-val').value = method;
+            let btnMult = document.getElementById('method-mult');
+            let btnAdd = document.getElementById('method-add');
+
+            if (method === 'multiplicative') {
+                btnMult.className = 'py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20';
+                btnAdd.className = 'py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
+            } else {
+                btnAdd.className = 'py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20';
+                btnMult.className = 'py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
+            }
+            calculateNoVig();
+        }
+
+        function calculateNoVig() {
+            let o1 = parseFloat(document.getElementById('novig-odds-1').value);
+            let o2 = parseFloat(document.getElementById('novig-odds-2').value);
+            let method = document.getElementById('novig-method-val').value;
+
+            if (isNaN(o1) || isNaN(o2)) return;
+
+            let dec1 = americanToDecimal(o1);
+            let dec2 = americanToDecimal(o2);
+
+            let raw1 = decimalToImpliedProb(dec1);
+            let raw2 = decimalToImpliedProb(dec2);
+            let totalRaw = raw1 + raw2;
+            let overround = totalRaw - 100;
+
+            let fairProb1, fairProb2;
+
+            if (method === 'multiplicative') {
+                fairProb1 = (raw1 / totalRaw) * 100;
+                fairProb2 = (raw2 / totalRaw) * 100;
+            } else {
+                // Additive margin split
+                let halfMargin = overround / 2;
+                fairProb1 = raw1 - halfMargin;
+                fairProb2 = raw2 - halfMargin;
+            }
+
+            let fairDec1 = 100 / fairProb1;
+            let fairDec2 = 100 / fairProb2;
+
+            let fairAm1 = decimalToAmerican(fairDec1);
+            let fairAm2 = decimalToAmerican(fairDec2);
+
+            // Update UI
+            document.getElementById('novig-overround').innerText = overround.toFixed(2) + '%';
+            
+            document.getElementById('novig-fair-odds-1').innerText = (fairAm1 > 0 ? '+' : '') + fairAm1;
+            document.getElementById('novig-fair-prob-1').innerText = fairProb1.toFixed(2) + '%';
+            document.getElementById('novig-raw-prob-1').innerText = raw1.toFixed(2) + '%';
+
+            document.getElementById('novig-fair-odds-2').innerText = (fairAm2 > 0 ? '+' : '') + fairAm2;
+            document.getElementById('novig-fair-prob-2').innerText = fairProb2.toFixed(2) + '%';
+            document.getElementById('novig-raw-prob-2').innerText = raw2.toFixed(2) + '%';
+        }
+
+        // Initialize calculations on load
+        window.onload = function() {
+            calculateConverter();
+            calculateEdge();
+            calculateNoVig();
+        };
+    </script>
+</body>
+</html>
